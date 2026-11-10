@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="mn">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lingors Marathon - Batzorig Terminal</title>
+  <style>
+    :root {
+      --cyber-bg: #030814;
+      --neon-blue: #00f3ff;
+      --neon-blue-glow: rgba(0, 243, 255, 0.4);
+      --neon-blue-dim: #0088aa;
+      --text-white: #e0f7fc;
+      --terminal-box: rgba(4, 20, 36, 0.85);
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'Courier New', Courier, monospace;
+    }
+
+    body {
+      background-color: var(--cyber-bg);
+      color: var(--text-white);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow-x: hidden;
+      padding: 20px;
+      position: relative;
+    }
+
+    canvas#matrix {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 1;
+      opacity: 0.35;
+    }
+
+    .container {
+      position: relative;
+      z-index: 10;
+      width: 100%;
+      max-width: 800px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .terminal {
+      background: var(--terminal-box);
+      border: 1px solid var(--neon-blue);
+      border-radius: 8px;
+      box-shadow: 0 0 25px var(--neon-blue-glow);
+      backdrop-filter: blur(10px);
+      overflow: hidden;
+    }
+
+    .terminal-header {
+      background: rgba(0, 243, 255, 0.1);
+      border-bottom: 1px solid var(--neon-blue);
+      padding: 10px 15px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .terminal-title {
+      color: var(--neon-blue);
+      font-size: 0.95rem;
+      font-weight: bold;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      text-shadow: 0 0 8px var(--neon-blue);
+    }
+
+    .controls {
+      display: flex;
+      gap: 8px;
+    }
+
+    .dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--neon-blue-dim);
+    }
+
+    .terminal-body {
+      padding: 25px;
+      min-height: 380px;
+      font-size: 0.95rem;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+
+    .line {
+      margin-bottom: 10px;
+    }
+
+    .neon-text {
+      color: var(--neon-blue);
+      text-shadow: 0 0 5px var(--neon-blue-glow);
+    }
+
+    .bold {
+      font-weight: bold;
+    }
+
+    .cursor {
+      display: inline-block;
+      width: 8px;
+      height: 16px;
+      background: var(--neon-blue);
+      box-shadow: 0 0 8px var(--neon-blue);
+      vertical-align: middle;
+      animation: blink 0.8s infinite;
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0; }
+    }
+
+    .company-badge {
+      margin-top: 15px;
+      align-self: center;
+      padding: 10px 20px;
+      border: 1px dashed var(--neon-blue);
+      background: rgba(0, 243, 255, 0.05);
+      color: var(--neon-blue);
+      font-weight: bold;
+      letter-spacing: 2px;
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      box-shadow: 0 0 15px var(--neon-blue-glow);
+      text-align: center;
+      border-radius: 4px;
+      z-index: 10;
+    }
+
+    .sound-btn {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      z-index: 100;
+      background: var(--terminal-box);
+      border: 1px solid var(--neon-blue);
+      color: var(--neon-blue);
+      padding: 10px 15px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      box-shadow: 0 0 10px var(--neon-blue-glow);
+    }
+
+    .sound-btn:hover {
+      background: var(--neon-blue);
+      color: var(--cyber-bg);
+    }
+  </style>
+</head>
+<body>
+
+  <canvas id="matrix"></canvas>
+
+  <div class="container">
+    <div class="terminal">
+      <div class="terminal-header">
+        <div class="terminal-title">CYBERPUNK TERMINAL // LINGORS MARATHON</div>
+        <div class="controls">
+          <div class="dot"></div>
+          <div class="dot"></div>
+          <div class="dot"></div>
+        </div>
+      </div>
+      <div class="terminal-body" id="terminal-content"></div>
+    </div>
+
+    <div class="company-badge">
+      ⚡ MADE BY BATZORIG MINI IT COMPANY ⚡
+    </div>
+  </div>
+
+  <button class="sound-btn" id="soundToggle">🔊 Audio: ON</button>
+
+  <script>
+    // --- Matrix Code Rain Effect ---
+    const canvas = document.getElementById('matrix');
+    const ctx = canvas.getContext('2d');
+
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%&*+-/<>~';
+    const fontSize = 14;
+    let columns = Math.floor(canvas.width / fontSize);
+    let drops = Array(columns).fill(1);
+
+    function drawMatrix() {
+      ctx.fillStyle = 'rgba(3, 8, 20, 0.1)';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      ctx.fillStyle = '#00f3ff';
+      ctx.font = fontSize + 'px monospace';
+
+      for (let i = 0; i < drops.length; i++) {
+        const text = chars.charAt(Math.floor(Math.random() * chars.length));
+        ctx.fillText(text, i * fontSize, drops[i] * fontSize);
+
+        if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) {
+          drops[i] = 0;
+        }
+        drops[i]++;
+      }
+    }
+    setInterval(drawMatrix, 35);
+
+    // --- Web Audio API Synth Effects ---
+    let audioEnabled = true;
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    let audioCtx = null;
+
+    function initAudio() {
+      if (!audioCtx) {
+        audioCtx = new AudioContext();
+      }
+    }
+
+    function playBeep(freq = 800, duration = 0.03, type = 'sine') {
+      if (!audioEnabled || !audioCtx) return;
+      try {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.04, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
+      } catch (e) {}
+    }
+
+    function playSuccessChime() {
+      if (!audioEnabled || !audioCtx) return;
+      const notes = [523.25, 659.25, 783.99, 1046.50];
+      notes.forEach((freq, idx) => {
+        setTimeout(() => playBeep(freq, 0.15, 'triangle'), idx * 80);
+      });
+    }
+
+    const soundBtn = document.getElementById('soundToggle');
+    soundBtn.addEventListener('click', () => {
+      initAudio();
+      audioEnabled = !audioEnabled;
+      soundBtn.innerText = audioEnabled ? '🔊 Audio: ON' : '🔇 Audio: OFF';
+    });
+
+    document.body.addEventListener('click', () => initAudio(), { once: true });
+
+    // --- Terminal Sequence Execution ---
+    const terminal = document.getElementById('terminal-content');
+
+    const sequence = [
+      { text: "> INITIALIZING CYBER TERMINAL...", delay: 50, color: "neon-text" },
+      { text: "> CONNECTING TO LINGORS DATABASE...", delay: 40 },
+      { text: "> EVENT: The 62th Nationwide Reading Marathon", delay: 40, color: "neon-text bold" },
+      { text: "--------------------------------------------------", delay: 20 },
+      { text: "👤 IDENT USER:", delay: 40, color: "bold" },
+      { text: "   • Name: Batzorig", delay: 30 },
+      { text: "   • Lingors User: Batzorig Banzragch", delay: 30 },
+      { text: "   • School: Bulgan province, Gurvanbulag soum GES", delay: 30 },
+      { text: "   • Class: 8B", delay: 30 },
+      { text: "--------------------------------------------------", delay: 20 },
+      { text: "📊 MARATHON METRICS & STATS:", delay: 40, color: "neon-text bold" },
+      { text: "   [✔] Target: 21km (21,000 words) Achieved! 🎯", delay: 40 },
+      { text: "   [✔] Total words: 300km (300,000 words) 🚀", delay: 40 },
+      { text: "   [★] Status: Goal Achieved! 🔥", delay: 40, color: "neon-text bold" },
+      { text: "--------------------------------------------------", delay: 20 },
+      { text: "💬 USER STATEMENT:", delay: 40, color: "bold" },
+      { text: "   \"This marathon was not only helpful for improving my English vocabulary 📚 and reading skills ✨, but it also helped me build a good habit of reading books every day 💡. I am very happy that I could challenge myself and discover new books 🎯. Thank you to the Lingors team and the organizers for giving me this great opportunity! 🚀\"", delay: 30, color: "neon-text" },
+      { text: "--------------------------------------------------", delay: 20 },
+      { text: "> SYSTEM OVERRIDE COMPLETE. ALL DATA VERIFIED.", delay: 50, color: "neon-text bold", chime: true }
+    ];
+
+    async function typeLine(item) {
+      const lineContainer = document.createElement('div');
+      lineContainer.className = 'line ' + (item.color || '');
+      terminal.appendChild(lineContainer);
+
+      const text = item.text;
+      for (let i = 0; i < text.length; i++) {
+        lineContainer.textContent += text.charAt(i);
+        if (Math.random() > 0.3) {
+          playBeep(600 + Math.random() * 400, 0.02, 'sine');
+        }
+        await new Promise(r => setTimeout(r, item.delay || 30));
+      }
+
+      if (item.chime) {
+        playSuccessChime();
+      }
+    }
+
+    async function runTerminal() {
+      initAudio();
+      for (const item of sequence) {
+        await typeLine(item);
+        await new Promise(r => setTimeout(r, 150));
+      }
+      
+      const cursor = document.createElement('span');
+      cursor.className = 'cursor';
+      terminal.appendChild(cursor);
+    }
+
+    window.onload = () => {
+      setTimeout(runTerminal, 500);
+    };
+  </script>
+</body>
+</html>
